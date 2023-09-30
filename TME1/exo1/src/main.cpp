@@ -6,14 +6,17 @@
 int main () {
 
 	std::string abc = "abc";
-	char * str = new char [3];
+	//FAUTE new char doit contenir \0 donc size=4 et non 3
+	char * str = new char [4];
 	str[0] = 'a';
 	str[1] = 'b';
 	str[2] = 'c';
-	size_t i = 0;
+	str[3]='\0';
+	//FAUTE size_t est unsigned donc si <0 problème on utilise donc un int
+	int i = 0;
 
 	if (! strcmp (str, abc.c_str())) {
-		std::cout << "Equal !";
+		std::cout << "Equal !\n";
 	}
 
 	pr::List list;
@@ -24,15 +27,10 @@ int main () {
 	std::cout << "Taille : " << list.size() << std::endl;
 
 	// Affiche à l'envers
-	for (i= list.size() - 1 ; i >= 0 ; i--) {
+	for (i= list.size()-1  ; i >= 0 ; i--) {
 		std::cout << "elt " << i << ": " << list[i] << std::endl;
 	}
-
-	// liberer les char de la chaine
-	for (char *cp = str ; *cp ; cp++) {
-		delete cp;
-	}
-	// et la chaine elle meme
-	delete str;
+	//FAUTE on peut delete[] sur new char au lieu de faire boucles
+	delete[] str;
 
 }

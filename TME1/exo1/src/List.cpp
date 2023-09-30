@@ -1,3 +1,5 @@
+//FAUTE pas d'include du .h
+#include "List.h"
 
 namespace pr {
 
@@ -9,15 +11,18 @@ size_t Chainon::length() {
 	if (next != nullptr) {
 		len += next->length();
 	}
-	return length();
+	//FAUTE return len et pas length()
+	return len;
 }
 
-void Chainon::print (std::ostream & os) {
+//FAUTE ajout const pour correspondre à la signature
+void Chainon::print (std::ostream & os) const{
 	os << data ;
 	if (next != nullptr) {
 		os << ", ";
+		//FAUTE on met l'appel récursif seulement si on est pas sur nullptr
+		next->print(os);
 	}
-	next->print(os);
 }
 
 // ******************  List
@@ -45,7 +50,8 @@ void List::push_front (const std::string& val) {
 	tete = new Chainon(val,tete);
 }
 
-bool empty() {
+//FAUTE ajout de List:: car on est plus dans le .h
+bool List::empty() {
 	return tete == nullptr;
 }
 
@@ -57,8 +63,7 @@ size_t List::size() const {
 	}
 }
 
-} // namespace pr
-
+//FAUTE doit être dans le namespace
 std::ostream & operator<< (std::ostream & os, const pr::List & vec)
 {
 	os << "[";
@@ -69,3 +74,5 @@ std::ostream & operator<< (std::ostream & os, const pr::List & vec)
 	return os;
 }
 
+
+} // namespace pr

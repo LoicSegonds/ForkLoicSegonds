@@ -35,9 +35,8 @@ public:
 
 	void push_back (const std::string& val) ;
 
-	void push_front (const std::string& val) {
-		tete = new Chainon(val,tete);
-	}
+	//Faute on a une redéfinition dans le cpp donc on supprime ici
+	void push_front (const std::string& val);
 
 	bool empty() ;
 
