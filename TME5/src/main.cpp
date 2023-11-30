@@ -1,6 +1,9 @@
 #include "Vec3D.h"
 #include "Rayon.h"
 #include "Scene.h"
+#include "Job.h"
+#include "Pool.h"
+#include "Barrier.h"
 #include <iostream>
 #include <algorithm>
 #include <fstream>
@@ -9,6 +12,8 @@
 
 using namespace std;
 using namespace pr;
+
+const int nbThreads=4;
 
 
 void fillScene(Scene & scene, default_random_engine & re) {
@@ -98,6 +103,66 @@ void exportImage(const char * path, size_t width, size_t height, Color * pixels)
 	img.close();
 }
 
+
+/*----------------------------------------------------------------------------*/
+class concreteJob : public Job {
+
+    int x;
+		int y;
+		const Scene &scene;
+		const Scene::screen_t & screen;
+    vector<Vec3D> & lights;
+    Color * pixels;
+    Barrier &b;
+
+public :
+
+    concreteJob( int x, int y, const Scene & scene, const Scene::screen_t & screen,
+			vector<Vec3D>& lights, Color* pixels,Barrier &b):
+			 x(x), y(y), scene(scene), screen(screen), lights(lights), pixels(pixels),b(b){}
+
+
+
+		/*Pour faire une ligne de pixels, ne pas avoir param y et faire une boucle
+		for sur y dans run
+		*/
+		void run(){
+
+			auto & screenPoint = screen[y][x];
+			// le rayon a inspecter
+			Rayon  ray(scene.getCameraPos(), screenPoint);
+
+			int targetSphere = findClosestInter(scene, ray);
+
+			if(targetSphere == -1){
+				// keep background color
+				b.done();
+        return;
+			}else{
+				const Sphere & obj = *(scene.begin() + targetSphere);
+				// pixel prend la couleur de l'objet
+				Color finalcolor = computeColor(obj, ray, scene.getCameraPos(), lights);
+
+				// le point de l'image (pixel) dont on vient de calculer la couleur
+				Color & pixel = pixels[y*scene.getHeight() + x];
+				// mettre a jour la couleur du pixel dans l'image finale.
+				pixel=finalcolor;
+      }
+			b.done();
+    }
+
+
+    ~concreteJob(){}
+};
+
+
+
+
+
+
+
+/*----------------------------------------------------------------------------*/
+
 // NB : en francais pour le cours, preferez coder en english toujours.
 // pas d'accents pour eviter les soucis d'encodage
 
@@ -110,8 +175,8 @@ int main () {
 	Scene scene (1000,1000);
 	// remplir avec un peu d'aléatoire
 	fillScene(scene, re);
-	
-	// lumieres 
+
+	// lumieres
 	vector<Vec3D> lights;
 	lights.reserve(3);
 	lights.emplace_back(Vec3D(50, 50, -50));
@@ -125,31 +190,19 @@ int main () {
 	// Les couleurs des pixels dans l'image finale
 	Color * pixels = new Color[scene.getWidth() * scene.getHeight()];
 
+	Pool pool(nbThreads);
+	pool.start(nbThreads);
+	Barrier b(scene.getWidth() *scene.getHeight());
+
 	// pour chaque pixel, calculer sa couleur
 	for (int x =0 ; x < scene.getWidth() ; x++) {
 		for (int  y = 0 ; y < scene.getHeight() ; y++) {
-			// le point de l'ecran par lequel passe ce rayon
-			auto & screenPoint = screen[y][x];
-			// le rayon a inspecter
-			Rayon  ray(scene.getCameraPos(), screenPoint);
-
-			int targetSphere = findClosestInter(scene, ray);
-
-			if (targetSphere == -1) {
-				// keep background color
-				continue ;
-			} else {
-				const Sphere & obj = *(scene.begin() + targetSphere);
-				// pixel prend la couleur de l'objet
-				Color finalcolor = computeColor(obj, ray, scene.getCameraPos(), lights);
-				// le point de l'image (pixel) dont on vient de calculer la couleur
-				Color & pixel = pixels[y*scene.getHeight() + x];
-				// mettre a jour la couleur du pixel dans l'image finale.
-				pixel = finalcolor;
-			}
-
+			pool.submit(new concreteJob(x,y,ref(scene),ref(screen),ref(lights),pixels,ref(b)));
 		}
 	}
+
+	b.wait_for();
+	pool.stop();
 
 	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 	    std::cout << "Total time "
@@ -160,4 +213,3 @@ int main () {
 
 	return 0;
 }
-
